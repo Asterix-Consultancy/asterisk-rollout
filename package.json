@@ -1,0 +1,14 @@
+{
+  "name": "asterisk-rollout",
+  "version": "0.1.0",
+  "private": true,
+  "description": "Cinematic promo site for Asterisk, the Risk Finder",
+  "type": "module",
+  "scripts": {
+    "dev": "node server.mjs",
+    "build": "echo \"Static site: nothing to build, Vercel serves public/\""
+  },
+  "engines": {
+    "node": ">=18"
+  }
+}
