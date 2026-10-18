@@ -1,8 +1,8 @@
 {
-  "name": "asterisk-rollout",
+  "name": "lumora-site",
   "version": "0.1.0",
   "private": true,
-  "description": "Cinematic promo site for Asterisk, the Risk Finder",
+  "description": "Cinematic promo site for Lumora, the Risk Finder",
   "type": "module",
   "scripts": {
     "dev": "node server.mjs",

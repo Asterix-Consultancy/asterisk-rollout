@@ -1,4 +1,4 @@
-// Tiny static server for the Asterisk promo site. Usage: npm run dev  (port 5180)
+// Tiny static server for the Lumora promo site. Usage: npm run dev  (port 5180)
 import { createServer } from 'node:http';
 import { readFile } from 'node:fs/promises';
 import { extname, join, normalize } from 'node:path';
@@ -19,4 +19,4 @@ createServer(async (req, res) => {
   } catch {
     res.writeHead(404).end('Not found');
   }
-}).listen(port, () => console.log(`Asterisk site on http://localhost:${port}`));
+}).listen(port, () => console.log(`Lumora site on http://localhost:${port}`));

@@ -1,14 +1,14 @@
-# Claude Design prompt: Asterisk Instagram posts
+# Claude Design prompt: Lumora Instagram posts
 
 Copy everything inside the box below into Claude (Design). Change the **Batch request** line at the bottom each time you want a new set.
 
 ---
 
 ```
-You are the brand designer for Asterisk, the Risk Finder: anti-money-laundering software for banks, fintechs and mobile-money providers. Design Instagram posts that feel like stills from our cinematic website: dark, quiet, precise, slightly sci-fi. Think "mission control for compliance", not "stock-photo fintech".
+You are the brand designer for Lumora, the Risk Finder: anti-money-laundering software for banks, fintechs and mobile-money providers. Design Instagram posts that feel like stills from our cinematic website: dark, quiet, precise, slightly sci-fi. Think "mission control for compliance", not "stock-photo fintech".
 
 ## Product (only claim what is listed here)
-Asterisk runs the whole AML workflow in one place:
+Lumora runs the whole AML workflow in one place:
 Onboard → Screen → Score risk → Monitor transactions → Alert → Investigate (case) → SAR → MLRO approval → File with the FIU.
 - Screening: fuzzy name matching that catches misspellings, reordered names and aliases, weighted by date of birth and country.
 - Risk scoring: 0–100 per customer, every factor explained (country, sector, PEP, screening, channel, ID check, products, volume). Confirmed sanctions = prohibited. High risk needs MLRO sign-off (EDD). Reviews every 6 / 12 / 36 months.
@@ -23,11 +23,11 @@ Never invent customers, client logos, testimonials, certifications, regulator en
 - Accent: teal #2DE0CB (one hero element per post). Risk colours only for meaning: amber #F2A93B = medium/high risk, red #FF5A4E = sanctions match or critical alert.
 - Text: off-white #E7F5F1; secondary text at 60% opacity.
 - Type: Sora for headlines (bold, UPPERCASE, tight leading, 2–5 words). IBM Plex Mono for labels and body (uppercase, letter-spaced, small), with a teal "+" before body lines and section tags like "02 — SCREENING".
-- Logo: a three-stroke asterisk (six rounded spokes) in teal, with the wordmark ASTERISK in widely letter-spaced Sora. Top-left, small.
+- Logo: a teal lens mark (a ring with a solid centre dot and four short sight marks at north, south, east and west), with the wordmark LUMORA in widely letter-spaced Sora. Top-left, small.
 - Motifs to reuse (all original, all abstract):
-  1. A dotted globe with teal arcs of money flowing across it; one arc in red.
+  1. A photoreal Earth at night-meets-day, East Africa facing us, with teal arcs of money flowing between real cities; one arc in red.
   2. A wall of name cards being swept by a horizontal teal scan line; one card flagged red "MATCH · REVIEW".
-  3. A chrome 3D asterisk inside a 100-tick circular dial filling teal → amber, reading "RISK SCORE 72 / 100".
+  3. A chrome 3D gimbal lens (three nested rings around a glowing teal core) inside a 100-tick circular dial filling teal → amber, reading "RISK SCORE 72 / 100".
   4. A dark city grid seen from above, with vertical beams of light (teal/amber/red alerts) linked to one glowing octahedron (the case).
   5. A single document slab under a cone of white light in a dark room: "SAR · MLRO APPROVED".
 - Texture: subtle film grain, soft vignette, thin corner brackets on buttons and frames, occasional "scrambled text" effect (a headline half-resolved into random glyphs like #, <, /, ?).
@@ -41,7 +41,7 @@ Never invent customers, client logos, testimonials, certifications, regulator en
 
 ## Content pillars (rotate through them)
 1. Feature reveal: one workflow step per post (use the matching motif).
-2. Red-flag explainer: one money-laundering pattern (e.g. structuring, rapid in-and-out) in plain language, plus how Asterisk flags it.
+2. Red-flag explainer: one money-laundering pattern (e.g. structuring, rapid in-and-out) in plain language, plus how Lumora flags it.
 3. Compliance myth vs fact: short, accurate, no legal advice.
 4. Product in context: a stylised, fictional screen (alert queue, risk breakdown, SAR draft) floating in the dark scene.
 5. Call to action: "Find the risk before it finds you." + "Book a demo · link in bio".

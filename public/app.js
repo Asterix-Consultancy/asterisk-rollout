@@ -1,4 +1,4 @@
-/* Asterisk promo site: one Three.js world, six stations, camera driven by scroll. */
+/* Lumora promo site: one Three.js world, six stations, camera driven by scroll. */
 gsap.registerPlugin(ScrollTrigger);
 
 // smooth, inertial scrolling (falls back to native scroll if the CDN is blocked)
@@ -326,19 +326,20 @@ scanner.add(scanLine, new THREE.Mesh(new THREE.PlaneGeometry(13, .9), scanGlowMa
 scanner.position.z = 1.6;
 themed.push(() => { scanLine.material.color.setHex(P.tealHex); scanGlowMat.uniforms.c.value.setHex(P.tealHex); });
 
-/* ================= STATION 4: the asterisk + risk dial ================= */
+/* ================= STATION 4: the Lumora lens + risk dial ================= */
 const S2 = new THREE.Vector3(0, 0, -135);
 const emblem = new THREE.Group(); emblem.position.copy(S2); scene.add(emblem);
 const metal = new THREE.MeshStandardMaterial({ color: 0xa9c4bf, metalness: .92, roughness: .22 });
-const star = new THREE.Group(); emblem.add(star);
-for (let k = 0; k < 3; k++) {
-  const arm = new THREE.Group(); arm.rotation.z = k * Math.PI / 3;
-  arm.add(new THREE.Mesh(new THREE.CylinderGeometry(.34, .34, 4.4, 32), metal));
-  [2.2, -2.2].forEach(y => { const cap = new THREE.Mesh(new THREE.SphereGeometry(.34, 32, 16), metal); cap.position.y = y; arm.add(cap); });
-  star.add(arm);
-}
-const hub = new THREE.Mesh(new THREE.TorusGeometry(.62, .09, 16, 64), new THREE.MeshBasicMaterial());
-hub.position.z = .36; star.add(hub);
+// three gimbal rings around a glowing core: the lens that brings risk into the light
+const lens = new THREE.Group(); emblem.add(lens);
+const rings = [2.3, 1.85, 1.4].map((r, k) => {
+  const ring = new THREE.Mesh(new THREE.TorusGeometry(r, .13, 24, 96), metal);
+  ring.rotation.set(k === 1 ? Math.PI / 2 : 0, k === 2 ? Math.PI / 2 : 0, 0);
+  lens.add(ring); return ring;
+});
+const coreMat = new THREE.MeshStandardMaterial({ roughness: .25, metalness: .1, emissiveIntensity: 1.1 });
+const core = new THREE.Mesh(new THREE.SphereGeometry(.62, 48, 32), coreMat); lens.add(core);
+const hub = new THREE.Mesh(new THREE.TorusGeometry(.95, .045, 16, 96), new THREE.MeshBasicMaterial()); lens.add(hub);
 const e1 = new THREE.PointLight(0x2de0cb, 3, 18); e1.position.set(-4, 3, 3); emblem.add(e1);
 const e2 = new THREE.PointLight(0xffffff, 2, 18); e2.position.set(4, -2, 5); emblem.add(e2);
 const e3 = new THREE.PointLight(0xf2a93b, 1.6, 14); e3.position.set(0, 4, -3); emblem.add(e3);
@@ -361,7 +362,7 @@ const scoreTex = canvasTex(512, 128, (c, w, h) => {
 const scoreSprite = new THREE.Sprite(new THREE.SpriteMaterial({ map: scoreTex, transparent: true, depthWrite: false }));
 scoreSprite.scale.set(4, 1, 1); scoreSprite.position.set(0, -5.4, 0); emblem.add(scoreSprite);
 let dialFilled = -1;
-themed.push(() => { hub.material.color.setHex(P.tealHex); dialFilled = -1; });
+themed.push(() => { hub.material.color.setHex(P.tealHex); coreMat.color.setHex(P.tealHex); coreMat.emissive.setHex(P.tealHex); dialFilled = -1; });
 
 /* ================= STATION 5: alert grid ================= */
 const S3 = new THREE.Vector3(0, -8, -187);
@@ -694,7 +695,7 @@ form.addEventListener('submit', e => {
   if (!form.checkValidity()) { form.reportValidity(); return; }
   const f = Object.fromEntries(new FormData(form));
   const want = form.elements.interest.selectedOptions[0].textContent.toLowerCase();
-  const lines = [`Hello, I'd like ${want} for Asterisk.`, '', `Name: ${f.name}`, `Organisation: ${f.org}`];
+  const lines = [`Hello, I'd like ${want} for Lumora.`, '', `Name: ${f.name}`, `Organisation: ${f.org}`];
   if (f.role) lines.push(`Role: ${f.role}`);
   lines.push(`Institution type: ${f.type}`, `Email: ${f.email}`, `Phone: ${f.phone}`);
   if (f.msg.trim()) lines.push('', f.msg.trim());
@@ -762,8 +763,10 @@ function frame() {
     c.rotation.y = Math.sin(t * .4 + c.userData.phase) * .12;
   });
 
-  // asterisk + dial
-  star.rotation.z = t * .18; star.rotation.y = Math.sin(t * .5) * .35; star.rotation.x = Math.cos(t * .4) * .15;
+  // lens + dial: each ring turns on its own axis, the whole lens drifts
+  rings[0].rotation.x = t * .5; rings[1].rotation.y = t * .7; rings[2].rotation.x = Math.PI / 2 + t * .9;
+  lens.rotation.y = Math.sin(t * .4) * .4; lens.rotation.x = Math.cos(t * .3) * .2;
+  core.scale.setScalar(1 + Math.sin(t * 2.4) * .04); hub.rotation.y = t * 1.2;
   const filled = Math.round(dial.v);
   if (filled !== dialFilled) { dialFilled = filled; ticks.forEach((tk, i) => tk.material.color.setHex(i < filled ? (i < 40 ? P.tealHex : i < 65 ? P.mid : P.amberHex) : P.tickOff)); }
   if (Math.abs(dial.v - (dial._last ?? -1)) > .4) { scoreTex.repaint(); dial._last = dial.v; }
@@ -791,7 +794,8 @@ function frame() {
   flashEl.style.opacity = fl.toFixed(3);
   if (fl > .45) whoosh();
 
-  if (entered) setChapter(chapterFor(p));
+  // once the closing section is on screen no chapter text should linger, even if the camera is still catching up
+  if (entered) setChapter(scrollY > journeyEnd() ? -1 : chapterFor(p));
 
   renderer.render(scene, camera);
   requestAnimationFrame(frame);

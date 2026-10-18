@@ -1,8 +1,8 @@
-# AsteriskRollout
+# Lumora website
 
-Cinematic promo website for **Asterisk, the Risk Finder**. It's a single scroll journey through six 3D scenes: transaction monitoring on a real Earth, onboarding and document checks, screening, risk scoring, alerts and cases, and SAR filing. It ends on a call to action that opens a registration form and continues the enquiry on WhatsApp.
+Cinematic promo website for **Lumora, the Risk Finder** (built and credited by [asterisk.co.ke](https://asterisk.co.ke)). It's a single scroll journey through six 3D scenes: transaction monitoring on a real Earth, onboarding and document checks, screening, risk scoring, alerts and cases, and SAR filing. It ends on a call to action that opens a registration form and continues the enquiry on WhatsApp.
 
-It has a light and a dark mode. It follows the visitor's system setting, and the sun/moon button in the header switches and remembers the choice.
+It opens in dark mode. The sun/moon button in the header switches to light mode and remembers the choice.
 
 Plain static site, no build step: HTML, CSS and JavaScript with [Three.js](https://threejs.org) r128, [GSAP](https://gsap.com) + ScrollTrigger and [Lenis](https://lenis.darkroom.engineering) smooth scrolling, all loaded from CDNs. The ambient sound is synthesized in the browser, so there are no audio files.
 
@@ -14,7 +14,7 @@ Needs Node 18+.
 npm run dev
 ```
 
-Then open http://localhost:5180.
+Then open http://localhost:5180, or pick a port: `PORT=8080 npm run dev` (PowerShell: `$env:PORT=8080; npm run dev`).
 
 ## Deploy on Vercel
 
