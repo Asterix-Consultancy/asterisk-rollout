@@ -14,25 +14,18 @@ const $ = (s, r = document) => r.querySelector(s);
 const $$ = (s, r = document) => [...r.querySelectorAll(s)];
 const rand = (a, b) => a + Math.random() * (b - a);
 
-/* ---------------- theme ---------------- */
+/* ---------------- palette (the site is dark only) ---------------- */
 const PALETTES = {
   dark: {
     bg: 0x030a09, ink: '#e7f5f1', dim: 'rgba(231,245,241,.55)', faint: 'rgba(231,245,241,.25)',
     teal: '#2de0cb', tealHex: 0x2de0cb, tealDeep: 0x0b4f4a, red: '#ff5a4e', redHex: 0xff5a4e, amber: '#f2a93b', amberHex: 0xf2a93b, mid: 0x9fd88a,
     card: 'rgba(4,22,20,.88)', cardHit: 'rgba(60,8,6,.9)', hitInk: '#ffb1aa', paper: '#0a1513', paperLine: 'rgba(231,245,241,.22)',
-    tickOff: 0x1c3a32, box: 0x0a1a18, floor: 0x050c0b, slab: 0x1a2a27, pulse: 0xbffff6, ambient: .35, earthAmb: .05, stars: true, glow: THREE.AdditiveBlending,
-  },
-  light: {
-    bg: 0xeef3f1, ink: '#06201c', dim: 'rgba(6,32,28,.62)', faint: 'rgba(6,32,28,.2)',
-    teal: '#0a8f80', tealHex: 0x0a8f80, tealDeep: 0xb9dcd6, red: '#d23a2f', redHex: 0xd23a2f, amber: '#b9750f', amberHex: 0xc98512, mid: 0x5aa04a,
-    card: 'rgba(255,255,255,.94)', cardHit: 'rgba(255,233,230,.97)', hitInk: '#b3261e', paper: '#fbfdfc', paperLine: 'rgba(6,32,28,.16)',
-    tickOff: 0xc9d8d4, box: 0xdbe6e2, floor: 0xe4ece9, slab: 0xc3d2ce, pulse: 0x06574e, ambient: .9, earthAmb: .3, stars: false, glow: THREE.NormalBlending,
+    tickOff: 0x1c3a32, box: 0x0a1a18, floor: 0x050c0b, slab: 0x1a2a27, pulse: 0xbffff6, ambient: .35, earthAmb: .05,
   },
 };
-let P = PALETTES[document.documentElement.dataset.theme] || PALETTES.dark;
-const themed = [];              // callbacks re-run whenever the theme changes
-const glowMats = [];            // materials that glow on dark and print on light
-const glow = (m) => { glowMats.push(m); m.blending = P.glow; return m; };
+const P = PALETTES.dark;
+const themed = [];              // callbacks that colour the scene; re-run once the fonts are in
+const glow = (m) => { m.blending = THREE.AdditiveBlending; return m; };
 
 /* ---------------- renderer / camera ---------------- */
 const canvas = $('#gl');
@@ -49,7 +42,7 @@ const camera = new THREE.PerspectiveCamera(45, innerWidth / innerHeight, 0.1, 30
 const ambient = new THREE.AmbientLight(0x88aaa5, P.ambient); scene.add(ambient);
 const key = new THREE.DirectionalLight(0xffffff, 1.1); key.position.set(5, 8, 6); scene.add(key);
 
-/* ---------------- canvas textures that repaint with the theme ---------------- */
+/* ---------------- canvas textures (repaintable, e.g. once the fonts load) ---------------- */
 function canvasTex(w, h, draw) {
   const c = document.createElement('canvas'); c.width = w; c.height = h;
   const t = new THREE.CanvasTexture(c); t.anisotropy = 4; t.encoding = THREE.sRGBEncoding;
@@ -265,7 +258,7 @@ const billTex = canvasTex(640, 860, drawBill);
 const idCard = new THREE.Group(); docs.add(idCard);
 {
   const edge = new THREE.MeshStandardMaterial({ color: 0xcfd8d5, metalness: .3, roughness: .5 });
-  themed.push(() => edge.color.setHex(P === PALETTES.light ? 0xd5dfdb : 0x2a3a37));
+  edge.color.setHex(0x2a3a37);
   const face = new THREE.MeshStandardMaterial({ map: cardTex, roughness: .4, metalness: .1, emissive: 0xffffff, emissiveMap: cardTex, emissiveIntensity: .35, transparent: true });
   const body = new THREE.Mesh(new THREE.BoxGeometry(3.4, 3.4 * CARD_H / CARD_W, .035), [edge, edge, edge, edge, face, edge]);
   // the box corners are square; hide them behind the rounded texture by keeping the edge thin
@@ -370,7 +363,7 @@ const grid = new THREE.Group(); grid.position.copy(S3); scene.add(grid);
 let gh;
 themed.push(() => {
   if (gh) { grid.remove(gh); gh.geometry.dispose(); gh.material.dispose(); }
-  gh = new THREE.GridHelper(90, 60, P.tealHex, P.tealDeep); gh.material.transparent = true; gh.material.opacity = P === PALETTES.light ? .6 : .35; grid.add(gh);
+  gh = new THREE.GridHelper(90, 60, P.tealHex, P.tealDeep); gh.material.transparent = true; gh.material.opacity = .35; grid.add(gh);
 });
 const boxMat = new THREE.MeshStandardMaterial({ metalness: .4, roughness: .7 });
 themed.push(() => boxMat.color.setHex(P.box));
@@ -454,10 +447,8 @@ for (let s = -1; s <= 1; s += 2) for (let i = 0; i < 7; i++) {
 }
 themed.push(() => {
   floor.material.color.setHex(P.floor); slabMat.color.setHex(P.slab);
-  floor.material.metalness = P === PALETTES.light ? .05 : .7; slabMat.metalness = P === PALETTES.light ? .2 : .8;
-  slabFace.emissiveIntensity = P === PALETTES.light ? .15 : .55;
-  coneMat.uniforms.c.value.setHex(P === PALETTES.light ? 0x9fd9cf : 0xdbfff5);
-  dust.material.color.setHex(P === PALETTES.light ? 0x0a8f80 : 0xdffcf6);
+  coneMat.uniforms.c.value.setHex(0xdbfff5);
+  dust.material.color.setHex(0xdffcf6);
   strips.forEach(s => s.material.color.setHex(P.tealHex));
 });
 
@@ -472,25 +463,9 @@ const puffs = [];
   }
 }
 
-/* ---------------- apply theme ---------------- */
-function applyTheme() {
-  P = PALETTES[document.documentElement.dataset.theme] || PALETTES.dark;
-  renderer.setClearColor(P.bg, 1);
-  scene.fog.color.setHex(P.bg);
-  ambient.intensity = P.ambient;
-  stars.visible = P.stars;
-  earthMat.uniforms.amb.value = P.earthAmb;
-  atmoMat.uniforms.k.value = P === PALETTES.light ? .75 : 1;
-  glowMats.forEach(m => { m.blending = P.glow; m.needsUpdate = true; });
-  themed.forEach(f => f());
-}
-applyTheme();
-$('#theme').onclick = () => {
-  const next = document.documentElement.dataset.theme === 'light' ? 'dark' : 'light';
-  document.documentElement.dataset.theme = next;
-  try { localStorage.setItem('theme', next); } catch {}
-  applyTheme();
-};
+/* ---------------- scene colours ---------------- */
+renderer.setClearColor(P.bg, 1);
+themed.forEach(f => f());
 
 /* ---------------- camera path ---------------- */
 const K = [
@@ -669,7 +644,8 @@ $('#audio').onclick = () => {
   master.gain.linearRampToValueAtTime(soundOn ? .55 : 0, ac.currentTime + .8);
 };
 
-/* ---------------- registration -> WhatsApp ---------------- */
+/* ---------------- registration -> email (or WhatsApp) ---------------- */
+const ACCESS_EMAIL = 'hello@asterisk.co.ke';
 const WHATSAPP = '254754193490';
 const reg = $('#reg'), form = $('#reg form');
 let regOpen = false;
@@ -690,17 +666,27 @@ function closeReg() {
 $$('[data-register]').forEach(b => b.addEventListener('click', () => openReg(b.dataset.register)));
 $$('[data-close]', reg).forEach(b => b.addEventListener('click', closeReg));
 addEventListener('keydown', e => { if (e.key === 'Escape') closeReg(); });
-form.addEventListener('submit', e => {
-  e.preventDefault();
-  if (!form.checkValidity()) { form.reportValidity(); return; }
+// build the request from the form, or null (with the browser's hints shown) if something required is missing
+function requestText() {
+  if (!form.checkValidity()) { form.reportValidity(); return null; }
   const f = Object.fromEntries(new FormData(form));
   const want = form.elements.interest.selectedOptions[0].textContent.toLowerCase();
   const lines = [`Hello, I'd like ${want} for Lumora.`, '', `Name: ${f.name}`, `Organisation: ${f.org}`];
   if (f.role) lines.push(`Role: ${f.role}`);
   lines.push(`Institution type: ${f.type}`, `Email: ${f.email}`, `Phone: ${f.phone}`);
   if (f.msg.trim()) lines.push('', f.msg.trim());
-  const text = lines.join('\n');
-  const url = `https://wa.me/${WHATSAPP}?text=${encodeURIComponent(text)}`;
+  return { text: lines.join('\n'), org: f.org };
+}
+// access requests go by email; WhatsApp stays as a second option
+form.addEventListener('submit', e => {
+  e.preventDefault();
+  const r = requestText(); if (!r) return;
+  location.href = `mailto:${ACCESS_EMAIL}?subject=${encodeURIComponent(`Lumora access request: ${r.org}`)}&body=${encodeURIComponent(r.text)}`;
+  closeReg();
+});
+$('#wa').addEventListener('click', () => {
+  const r = requestText(); if (!r) return;
+  const url = `https://wa.me/${WHATSAPP}?text=${encodeURIComponent(r.text)}`;
   const win = window.open(url, '_blank');
   if (win) win.opener = null; else location.href = url; // popup blocked: continue in this tab
   closeReg();
