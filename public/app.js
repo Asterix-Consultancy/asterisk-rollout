@@ -357,45 +357,103 @@ scoreSprite.scale.set(4, 1, 1); scoreSprite.position.set(0, -5.4, 0); emblem.add
 let dialFilled = -1;
 themed.push(() => { hub.material.color.setHex(P.tealHex); coreMat.color.setHex(P.tealHex); coreMat.emissive.setHex(P.tealHex); dialFilled = -1; });
 
-/* ================= STATION 5: alert grid ================= */
+/* ================= STATION 5: alerts over a night city ================= */
 const S3 = new THREE.Vector3(0, -8, -187);
 const grid = new THREE.Group(); grid.position.copy(S3); scene.add(grid);
-let gh;
-themed.push(() => {
-  if (gh) { grid.remove(gh); gh.geometry.dispose(); gh.material.dispose(); }
-  gh = new THREE.GridHelper(90, 60, P.tealHex, P.tealDeep); gh.material.transparent = true; gh.material.opacity = .35; grid.add(gh);
+// city blocks: 3-unit cells, every 5th row and column is a street; tall downtown around DT, low-rise further out
+const CELL = 3, DT = new THREE.Vector2(2, -24);
+const lots = [];
+for (let i = -15; i <= 15; i++) for (let j = -22; j <= 2; j++) {
+  if (i % 5 === 0 || j % 5 === 0) continue;
+  const x = i * CELL, z = j * CELL, d2 = (x - DT.x) ** 2 + (z - DT.y) ** 2;
+  const tall = Math.exp(-d2 / 520);
+  const h = 1.2 + Math.random() * 2.2 + Math.pow(Math.random(), 1.4) * 22 * tall + (Math.random() < .05 ? rand(4, 9) : 0);
+  lots.push({ x: x + rand(-.25, .25), z: z + rand(-.25, .25), w: rand(2, 2.6), d: rand(2, 2.6), h });
+}
+// procedural facades: windows come from world position, so any building size gets evenly spaced floors
+const cityMat = new THREE.ShaderMaterial({
+  uniforms: { fogC: { value: new THREE.Color(P.bg) }, fogD: { value: scene.fog.density }, rim: { value: new THREE.Color(P.tealHex) } },
+  vertexShader: `varying vec3 vW; varying vec3 vN; varying float vSeed; varying float vH;
+    void main(){ mat4 m=modelMatrix*instanceMatrix; vec4 w=m*vec4(position,1.); vW=w.xyz; vN=normalize(mat3(m)*normal);
+      vSeed=instanceMatrix[3].x*12.9898+instanceMatrix[3].z*78.233; vH=position.y+.5; gl_Position=projectionMatrix*viewMatrix*w; }`,
+  fragmentShader: `uniform vec3 fogC, rim; uniform float fogD; varying vec3 vW; varying vec3 vN; varying float vSeed; varying float vH;
+    float hsh(vec2 p){ return fract(sin(dot(p,vec2(127.1,311.7)))*43758.5453); }
+    void main(){
+      float d=length(vW-cameraPosition);
+      vec3 col=vec3(.018,.04,.045)*(.7+.5*max(dot(vN,normalize(vec3(-.4,.7,.5))),0.));
+      if(vN.y>.5){ col=vec3(.03,.06,.062); }
+      else {
+        float u=abs(vN.x)>.5?vW.z:vW.x; vec2 g=vec2(u*2.4,vW.y*2.8); vec2 c=floor(g), f=fract(g);
+        float win=step(.2,f.x)*step(f.x,.78)*step(.25,f.y)*step(f.y,.72);
+        float r=hsh(c+vSeed), lit=step(.66,r);
+        vec3 wc=mix(vec3(1.,.76,.42),vec3(.72,.95,1.),step(.86,r))*(.45+.55*hsh(c*1.7+vSeed));
+        vec3 w=mix(vec3(.03,.075,.085),wc,lit);
+        float far=smoothstep(55.,110.,d);
+        col+=mix(win*w, w*.32, far);
+        col+=rim*smoothstep(.975,1.,vH)*.9;
+      }
+      col=mix(col,fogC,1.-exp(-fogD*fogD*d*d));
+      gl_FragColor=vec4(col,1.);
+    }`,
 });
-const boxMat = new THREE.MeshStandardMaterial({ metalness: .4, roughness: .7 });
-themed.push(() => boxMat.color.setHex(P.box));
 {
-  const N = 700, box = new THREE.BoxGeometry(1, 1, 1);
-  const inst = new THREE.InstancedMesh(box, boxMat, N);
-  const m = new THREE.Matrix4(), step = 1.5;
-  for (let i = 0; i < N; i++) {
-    const gx = Math.round(rand(-28, 28)), gz = Math.round(rand(-28, 28));
-    if (Math.abs(gx) < 2 && Math.abs(gz) < 2) { m.makeScale(0, 0, 0); inst.setMatrixAt(i, m); continue; }
-    const h = Math.pow(Math.random(), 3) * 3 + .15;
-    m.compose(new THREE.Vector3(gx * step + .75, h / 2, gz * step + .75), new THREE.Quaternion(), new THREE.Vector3(1.1, h, 1.1));
-    inst.setMatrixAt(i, m);
-  }
+  const inst = new THREE.InstancedMesh(new THREE.BoxGeometry(1, 1, 1), cityMat, lots.length);
+  const m = new THREE.Matrix4(), q = new THREE.Quaternion();
+  lots.forEach((l, i) => { m.compose(new THREE.Vector3(l.x, l.h / 2, l.z), q, new THREE.Vector3(l.w, l.h, l.d)); inst.setMatrixAt(i, m); });
   grid.add(inst);
 }
-const caseNode = new THREE.Mesh(new THREE.OctahedronGeometry(.9), new THREE.MeshBasicMaterial({ wireframe: true }));
-caseNode.position.y = 3.2; grid.add(caseNode);
-const caseCore = new THREE.Mesh(new THREE.OctahedronGeometry(.45), new THREE.MeshBasicMaterial()); caseCore.position.y = 3.2; grid.add(caseCore);
+const ground = new THREE.Mesh(new THREE.PlaneGeometry(220, 220), new THREE.MeshBasicMaterial({ color: 0x020807 }));
+ground.rotation.x = -Math.PI / 2; ground.position.set(0, -.01, -30); grid.add(ground);
+// street lights along every street, and traffic moving on them
+const streetsX = [], streetsZ = [];
+for (let i = -15; i <= 15; i++) if (i % 5 === 0) streetsX.push(i * CELL);
+for (let j = -22; j <= 2; j++) if (j % 5 === 0) streetsZ.push(j * CELL);
+{
+  const seg = [];
+  streetsX.forEach(x => seg.push(x, .03, -70, x, .03, 8));
+  streetsZ.forEach(z => seg.push(-47, .03, z, 47, .03, z));
+  const g = new THREE.BufferGeometry(); g.setAttribute('position', new THREE.Float32BufferAttribute(seg, 3));
+  grid.add(new THREE.LineSegments(g, glow(new THREE.LineBasicMaterial({ color: P.tealHex, transparent: true, opacity: .28 }))));
+}
+const cars = [];
+for (let i = 0; i < 260; i++) {
+  const alongZ = Math.random() < .5;
+  const lane = alongZ ? streetsX[(Math.random() * streetsX.length) | 0] : streetsZ[(Math.random() * streetsZ.length) | 0];
+  const dir = Math.random() < .5 ? 1 : -1;
+  cars.push({ alongZ, lane: lane + dir * .35, dir, t: Math.random(), speed: rand(.025, .06), warm: dir > 0 });
+}
+const carPos = new Float32Array(cars.length * 3), carCol = new Float32Array(cars.length * 3);
+cars.forEach((c, i) => { const col = c.warm ? [1, .62, .3] : [.9, .97, 1]; carCol.set(col, i * 3); });
+const carGeo = new THREE.BufferGeometry();
+carGeo.setAttribute('position', new THREE.BufferAttribute(carPos, 3)); carGeo.setAttribute('color', new THREE.BufferAttribute(carCol, 3));
+grid.add(new THREE.Points(carGeo, glow(new THREE.PointsMaterial({ size: .16, vertexColors: true, transparent: true, opacity: .95, depthWrite: false }))));
+function moveCars(dt) {
+  cars.forEach((c, i) => {
+    c.t = (c.t + c.speed * dt * c.dir + 1) % 1;
+    const a = c.alongZ ? -70 + c.t * 78 : -47 + c.t * 94;
+    if (c.alongZ) carPos.set([c.lane, .12, a], i * 3); else carPos.set([a, .12, c.lane], i * 3);
+  });
+  carGeo.attributes.position.needsUpdate = true;
+}
+// the case: one node floating above downtown that escalated alerts link into
+const CASE_AT = new THREE.Vector3(DT.x, 22, DT.y);
+const caseNode = new THREE.Mesh(new THREE.OctahedronGeometry(1.5), new THREE.MeshBasicMaterial({ wireframe: true }));
+caseNode.position.copy(CASE_AT); grid.add(caseNode);
+const caseCore = new THREE.Mesh(new THREE.OctahedronGeometry(.75), new THREE.MeshBasicMaterial()); caseCore.position.copy(CASE_AT); grid.add(caseCore);
 themed.push(() => { caseNode.material.color.setHex(P.tealHex); caseCore.material.color.setHex(P.pulse); });
+// alerts: beams of light rising from rooftops, coloured by severity
 const beacons = [];
 const beamMat = () => glow(new THREE.MeshBasicMaterial({ transparent: true, opacity: 0, depthWrite: false }));
-for (let i = 0; i < 26; i++) {
-  const sev = Math.random(), level = sev > .8 ? 'red' : sev > .45 ? 'amber' : 'teal';
-  const x = Math.round(rand(-14, 14)) * 1.5 + .75, z = Math.round(rand(-14, 14)) * 1.5 + .75;
-  const beam = new THREE.Mesh(new THREE.CylinderGeometry(.06, .22, 9, 8, 1, true), beamMat()); beam.position.set(x, 4.5, z);
-  const pad = new THREE.Mesh(new THREE.PlaneGeometry(1.4, 1.4), beamMat()); pad.rotation.x = -Math.PI / 2; pad.position.set(x, .02, z);
-  const link = new THREE.Line(new THREE.BufferGeometry().setFromPoints([new THREE.Vector3(x, .2, z), new THREE.Vector3(0, 3.2, 0)]),
+const roofs = lots.filter(l => l.h > 3.5 && Math.hypot(l.x - DT.x, l.z - DT.y) < 34).sort(() => Math.random() - .5).slice(0, 24);
+roofs.forEach(l => {
+  const sev = Math.random(), level = sev > .78 ? 'red' : sev > .42 ? 'amber' : 'teal';
+  const beam = new THREE.Mesh(new THREE.CylinderGeometry(.05, .2, 7, 8, 1, true), beamMat()); beam.position.set(l.x, l.h + 3.5, l.z);
+  const pad = new THREE.Mesh(new THREE.PlaneGeometry(l.w * .9, l.d * .9), beamMat()); pad.rotation.x = -Math.PI / 2; pad.position.set(l.x, l.h + .03, l.z);
+  const link = new THREE.Line(new THREE.BufferGeometry().setFromPoints([new THREE.Vector3(l.x, l.h + .1, l.z), CASE_AT]),
     glow(new THREE.LineBasicMaterial({ transparent: true, opacity: 0 })));
   grid.add(beam, pad, link);
   beacons.push({ beam, pad, link, level, phase: rand(0, 6), escalate: level !== 'teal' });
-}
+});
 themed.push(() => beacons.forEach(b => {
   const c = b.level === 'red' ? P.redHex : b.level === 'amber' ? P.amberHex : P.tealHex;
   [b.beam, b.pad, b.link].forEach(o => o.material.color.setHex(c));
@@ -474,7 +532,7 @@ const K = [
   { pos: [-.2, .4, -37], look: [0, .1, -45], shift: [2.8, .45] }, // 02 document check
   { pos: [0, 0, -79], look: [0, 0, -90] },           // 03 screening
   { pos: [0, 0, -122], look: [0, 0, -135], shift: [4.6, 0] },     // 04 risk
-  { pos: [0, 9, -167], look: [0, -7, -187] },        // 05 alerts grid
+  { pos: [-4, 10, -156], look: [2, .5, -205], shift: [-3, 0] }, // 05 alerts over the city
   { pos: [0, .3, -234], look: [0, -.2, -245], shift: [2.2, 0] },  // 06 filing room
   { pos: [0, 5.5, -229], look: [0, 7.5, -245] },     // final: tilt up into the light
 ].map(k => ({ pos: new THREE.Vector3(...k.pos), look: new THREE.Vector3(...k.look), shift: k.shift || [0, 0] }));
@@ -766,6 +824,7 @@ function frame() {
     b.link.material.opacity = b.escalate ? gridOn * gridState.link * .8 : 0;
   });
   scoreSprite.visible = fit() === 1; // on phones the panel text sits where the label would be
+  if (grid.visible) moveCars(dt);
   caseNode.rotation.y = t * .8; caseNode.rotation.x = t * .3;
   caseNode.scale.setScalar(.6 + gridState.link * .6); caseCore.scale.setScalar(.6 + gridState.link * .6 + Math.sin(t * 4) * .05);
 

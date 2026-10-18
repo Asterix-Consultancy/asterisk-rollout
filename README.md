@@ -1,6 +1,6 @@
 # Lumora website
 
-Cinematic promo website for **Lumora, the Risk Finder** (built and credited by [asterisk.co.ke](https://asterisk.co.ke)). It's a single scroll journey through six 3D scenes: transaction monitoring on a real Earth, onboarding and document checks, screening, risk scoring, alerts and cases, and SAR filing. It ends on a call to action that opens a registration form and continues the enquiry on WhatsApp.
+Cinematic promo website for **Lumora, the Risk Finder** (built and credited by [asterisk.co.ke](https://asterisk.co.ke)). It's a single scroll journey through six 3D scenes: transaction monitoring on a real Earth, onboarding and document checks, screening, risk scoring, alerts rising over a night city, and SAR filing. It ends on a call to action that opens a registration form and continues the enquiry on WhatsApp.
 
 The site is dark only.
 
