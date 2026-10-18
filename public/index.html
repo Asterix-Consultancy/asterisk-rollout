@@ -83,8 +83,7 @@
   .panel p { margin-top:20px; font-family:var(--mono); font-size:clamp(11px,1.05vw,13px); line-height:1.75; letter-spacing:.06em; color:var(--dim); text-transform:uppercase; padding-left:18px; position:relative; }
   .panel p::before { content:'+'; position:absolute; left:0; color:var(--teal); }
   /* readability: a dark halo behind type that sits over the 3D scenes, and a soft shade behind each chapter panel */
-  #hero h1, #hero p, .panel h2, .panel p, .panel .tag, #final h2, #final .lead { text-shadow:0 0 28px rgba(3,10,9,.95), 0 0 10px rgba(3,10,9,.85), 0 1px 2px rgba(3,10,9,.9); }
-  #hero p { color:rgba(231,245,241,.86); background:rgba(3,10,9,.5); padding:8px 16px; backdrop-filter:blur(6px); -webkit-backdrop-filter:blur(6px); }
+  .panel h2, .panel p, .panel .tag, #final h2, #final .lead { text-shadow:0 0 28px rgba(3,10,9,.95), 0 0 10px rgba(3,10,9,.85), 0 1px 2px rgba(3,10,9,.9); }
   .panel::before { content:''; position:absolute; inset:-60px -90px -50px; z-index:-1; pointer-events:none;
     background:radial-gradient(closest-side, rgba(3,10,9,.78), rgba(3,10,9,.45) 55%, rgba(3,10,9,0)); }
   .panel p { color:rgba(231,245,241,.78); }
