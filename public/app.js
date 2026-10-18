@@ -156,70 +156,167 @@ const SD = new THREE.Vector3(0, 0, -45);
 const docs = new THREE.Group(); docs.position.copy(SD); scene.add(docs);
 const doc = { v: 0, q: -1 };
 const CARD_W = 1024, CARD_H = 646;
-// fields: [label, value, x, y, w] in card pixels
+// a specimen identity card in the EU format (ID-1 size, TD1 machine-readable zone on the back), for the fictional state of Utopia
+const ID = { surname: 'WANJIRU', given: 'AMINA GRACE', sex: 'F', nat: 'UTO', dob: '910314', exp: '311102', no: 'UT4812297' };
+const fmtDate = d => `${d.slice(4)} ${d.slice(2, 4)} ${+d.slice(0, 2) > 40 ? 19 : 20}${d.slice(0, 2)}`;
+// fields: [label, value, x, y, w] in card pixels (y is the value baseline)
 const FIELDS = [
-  ['SURNAME', 'WANJIRU', 380, 190, 300], ['GIVEN NAMES', 'AMINA GRACE', 380, 270, 380], ['DATE OF BIRTH', '14.03.1991', 380, 350, 260],
-  ['DOCUMENT NO.', 'A3481 2297', 680, 350, 280], ['DATE OF EXPIRY', '02.11.2031', 380, 430, 260], ['SEX', 'F', 680, 430, 120],
+  ['SURNAME / NOM', ID.surname, 322, 216, 320], ['GIVEN NAMES / PRÉNOMS', ID.given, 322, 292, 400],
+  ['SEX / SEXE', ID.sex, 322, 368, 120], ['NATIONALITY', ID.nat, 462, 368, 160], ['DATE OF BIRTH', fmtDate(ID.dob), 652, 368, 230],
+  ['DOCUMENT NO.', ID.no, 322, 444, 250], ['DATE OF EXPIRY', fmtDate(ID.exp), 600, 444, 230],
 ];
-function drawCard(c, w, h) {
+// ICAO 9303 check digits, so the MRZ on the back is internally valid
+const mrzVal = ch => /\d/.test(ch) ? +ch : ch === '<' ? 0 : ch.charCodeAt(0) - 55;
+const chk = s => String([...s].reduce((a, ch, i) => a + mrzVal(ch) * [7, 3, 1][i % 3], 0) % 10);
+const pad = (s, n) => (s + '<'.repeat(n)).slice(0, n);
+const MRZ = (() => {
+  const l1 = pad('ID' + 'UTO' + ID.no + chk(ID.no), 30);
+  const opt = '<'.repeat(11);
+  const mid = ID.dob + chk(ID.dob) + ID.sex + ID.exp + chk(ID.exp) + ID.nat + opt;
+  const comp = l1.slice(5) + mid.slice(0, 7) + mid.slice(8, 15) + mid.slice(18, 29);
+  return [l1, mid + chk(comp), pad(ID.surname + '<<' + ID.given.replace(/ /g, '<'), 30)];
+})();
+const INK = '#14213d', INK_DIM = 'rgba(20,33,61,.62)';
+function cardBase(c, w, h, hues) {
   const r = 34;
-  c.fillStyle = P.paper; c.beginPath(); c.roundRect(0, 0, w, h, r); c.fill();
-  // guilloche security pattern
   c.save(); c.beginPath(); c.roundRect(0, 0, w, h, r); c.clip();
-  c.strokeStyle = P.paperLine; c.lineWidth = 1;
-  for (let k = 0; k < 26; k++) { c.beginPath(); for (let x = 0; x <= w; x += 8) { const y = 120 + k * 22 + Math.sin(x / 70 + k * .6) * 18; x ? c.lineTo(x, y) : c.moveTo(x, y); } c.stroke(); }
-  const g = c.createLinearGradient(0, 0, w, 0); g.addColorStop(0, P.teal); g.addColorStop(1, P.amber);
-  c.fillStyle = g; c.fillRect(0, 0, w, 96);
+  const g = c.createLinearGradient(0, 0, w, h);
+  hues.forEach((col, i) => g.addColorStop(i / (hues.length - 1), col));
+  c.fillStyle = g; c.fillRect(0, 0, w, h);
+  // guilloche: interleaved sine bands plus a rosette, the fine-line printing on real cards
+  c.lineWidth = 1;
+  for (let k = 0; k < 46; k++) {
+    c.strokeStyle = k % 2 ? 'rgba(40,80,150,.13)' : 'rgba(170,60,120,.10)';
+    c.beginPath();
+    for (let x = 0; x <= w; x += 6) { const y = -20 + k * 15 + Math.sin(x / 46 + k * .45) * 11 + Math.sin(x / 13) * 2; x ? c.lineTo(x, y) : c.moveTo(x, y); }
+    c.stroke();
+  }
+  c.strokeStyle = 'rgba(30,90,140,.09)';
+  for (let k = 0; k < 36; k++) {
+    c.beginPath();
+    for (let a = 0; a <= 6.3; a += .03) { const rr = 70 + 60 * Math.sin(a * 6 + k * .17); const x = w * .8 + Math.cos(a + k * .09) * rr * 1.5, y = h * .6 + Math.sin(a + k * .09) * rr; a ? c.lineTo(x, y) : c.moveTo(x, y); }
+    c.stroke();
+  }
   c.restore();
-  c.fillStyle = '#ffffff'; c.font = '600 34px Sora'; c.fillText('IDENTITY CARD', 44, 60);
-  c.font = '500 20px "IBM Plex Mono"'; c.textAlign = 'right'; c.fillText('SPECIMEN', w - 44, 58); c.textAlign = 'left';
-  // portrait
-  c.fillStyle = P.faint; c.beginPath(); c.roundRect(44, 140, 290, 360, 14); c.fill();
-  c.fillStyle = P.dim; c.beginPath(); c.arc(189, 268, 70, 0, Math.PI * 2); c.fill();
-  c.beginPath(); c.ellipse(189, 470, 120, 110, 0, Math.PI, 0); c.fill();
+}
+function star(c, x, y, r) {
+  c.beginPath();
+  for (let i = 0; i < 10; i++) { const a = -Math.PI / 2 + i * Math.PI / 5, rr = i % 2 ? r * .4 : r; c.lineTo(x + Math.cos(a) * rr, y + Math.sin(a) * rr); }
+  c.closePath(); c.fill();
+}
+function euFlag(c, x, y, w, h, code) {
+  c.fillStyle = '#003399'; c.beginPath(); c.roundRect(x, y, w, h, 6); c.fill();
+  c.fillStyle = '#ffcc00';
+  for (let i = 0; i < 12; i++) { const a = i * Math.PI / 6; star(c, x + w / 2 + Math.cos(a) * h * .34, y + h / 2 + Math.sin(a) * h * .34, h * .055); }
+  c.fillStyle = '#ffffff'; c.font = `700 ${h * .3}px Sora`; c.textAlign = 'center'; c.fillText(code, x + w / 2, y + h / 2 + h * .11); c.textAlign = 'left';
+}
+function portrait(c, x, y, w, h, alpha = 1) {
+  c.save(); c.globalAlpha = alpha;
+  c.beginPath(); c.roundRect(x, y, w, h, 10); c.clip();
+  const bg = c.createLinearGradient(x, y, x, y + h); bg.addColorStop(0, '#dfe5ea'); bg.addColorStop(1, '#c4ccd4');
+  c.fillStyle = bg; c.fillRect(x, y, w, h);
+  const cx = x + w / 2, s = w / 250;
+  // shoulders and top
+  c.fillStyle = '#3b4250'; c.beginPath(); c.ellipse(cx, y + h + 10 * s, 128 * s, 110 * s, 0, Math.PI, 0); c.fill();
+  c.fillStyle = '#e8eaee'; c.beginPath(); c.moveTo(cx - 30 * s, y + h - 92 * s); c.lineTo(cx, y + h - 50 * s); c.lineTo(cx + 30 * s, y + h - 92 * s); c.fill();
+  // neck and face
+  const skin = c.createLinearGradient(cx - 60 * s, 0, cx + 60 * s, 0); skin.addColorStop(0, '#6e4a36'); skin.addColorStop(.5, '#8a5d42'); skin.addColorStop(1, '#5f3f2d');
+  c.fillStyle = skin;
+  c.fillRect(cx - 24 * s, y + 175 * s, 48 * s, 70 * s);
+  c.beginPath(); c.ellipse(cx, y + 140 * s, 54 * s, 70 * s, 0, 0, Math.PI * 2); c.fill();
+  // hair
+  c.fillStyle = '#1b1514'; c.beginPath(); c.ellipse(cx, y + 104 * s, 66 * s, 52 * s, 0, Math.PI * .95, Math.PI * 2.05); c.fill();
+  c.beginPath(); c.ellipse(cx, y + 92 * s, 60 * s, 34 * s, 0, 0, Math.PI * 2); c.fill();
+  // features, kept soft so it reads as a photo at card size
+  c.fillStyle = 'rgba(25,15,12,.75)';
+  [[-20, 134], [20, 134]].forEach(([dx, dy]) => { c.beginPath(); c.ellipse(cx + dx * s, y + dy * s, 7 * s, 3.6 * s, 0, 0, 7); c.fill(); });
+  c.strokeStyle = 'rgba(25,15,12,.5)'; c.lineWidth = 2.4 * s;
+  c.beginPath(); c.moveTo(cx - 30 * s, y + 121 * s); c.quadraticCurveTo(cx - 20 * s, y + 116 * s, cx - 10 * s, y + 121 * s); c.moveTo(cx + 10 * s, y + 121 * s); c.quadraticCurveTo(cx + 20 * s, y + 116 * s, cx + 30 * s, y + 121 * s); c.stroke();
+  c.beginPath(); c.moveTo(cx, y + 140 * s); c.lineTo(cx - 5 * s, y + 162 * s); c.lineTo(cx + 4 * s, y + 164 * s); c.stroke();
+  c.strokeStyle = 'rgba(70,25,25,.7)'; c.lineWidth = 3.4 * s; c.beginPath(); c.moveTo(cx - 15 * s, y + 182 * s); c.quadraticCurveTo(cx, y + 188 * s, cx + 15 * s, y + 182 * s); c.stroke();
+  c.restore();
+}
+function drawCard(c, w, h) {
+  cardBase(c, w, h, ['#d7e4f1', '#eef0f6', '#f1dde6', '#dcefe5']);
+  euFlag(c, 40, 30, 132, 88, 'UT');
+  c.fillStyle = INK; c.font = '700 27px Sora'; c.fillText('REPUBLIC OF UTOPIA', 196, 64);
+  c.fillStyle = INK_DIM; c.font = '500 19px Sora'; c.fillText('IDENTITY CARD  ·  CARTE D’IDENTITÉ', 196, 98);
+  // specimen marking so the card can never pass for a real document
+  c.save(); c.translate(w - 130, 74); c.rotate(-.08);
+  c.strokeStyle = '#c0392b'; c.lineWidth = 3; c.strokeRect(-88, -26, 176, 44);
+  c.fillStyle = '#c0392b'; c.font = '700 24px "IBM Plex Mono"'; c.textAlign = 'center'; c.fillText('SPECIMEN', 0, 6); c.restore();
+  portrait(c, 40, 150, 250, 320);
   FIELDS.forEach(([l, v, x, y]) => {
-    c.fillStyle = P.dim; c.font = '500 17px "IBM Plex Mono"'; c.fillText(l, x, y - 28);
-    c.fillStyle = P.ink; c.font = '600 32px Sora'; c.fillText(v, x, y + 8);
+    c.fillStyle = INK_DIM; c.font = '500 15px "IBM Plex Mono"'; c.fillText(l, x, y - 34);
+    c.fillStyle = INK; c.font = '600 30px Sora'; c.fillText(v, x, y);
   });
-  // machine readable zone
-  c.fillStyle = P.ink; c.font = '500 27px "IBM Plex Mono"';
-  c.fillText('IDKEN<A34812297<<<<<<<<<<<<<<<', 44, 558);
-  c.fillText('9103146F3111026<<<<<<<<<<<<<6', 44, 596);
-  c.fillText('WANJIRU<<AMINA<GRACE<<<<<<<<<', 44, 634 - 4);
+  // signature
+  c.fillStyle = INK_DIM; c.font = '500 15px "IBM Plex Mono"'; c.fillText('SIGNATURE', 40, 512);
+  c.strokeStyle = '#1d2a6b'; c.lineWidth = 3; c.beginPath(); c.moveTo(48, 580);
+  for (let i = 0; i <= 40; i++) { const x = 48 + i * 6; c.lineTo(x, 566 - Math.sin(i * .8) * 16 * (1 - i / 50) - Math.cos(i * .33) * 6); }
+  c.stroke();
+  // ghost image and card access number
+  portrait(c, 870, 410, 112, 144, .35);
+  c.fillStyle = INK_DIM; c.font = '500 15px "IBM Plex Mono"'; c.fillText('CAN', 322, 520);
+  c.fillStyle = INK; c.font = '600 26px "IBM Plex Mono"'; c.fillText('482917', 322, 554);
+  c.fillStyle = 'rgba(20,33,61,.08)'; c.font = '800 220px Sora'; c.fillText('UT', 560, 620);
 }
-// OCR / verification overlay drawn on top of the card as the check runs
+function drawCardBack(c, w, h) {
+  cardBase(c, w, h, ['#e9e3f2', '#dfeaf3', '#e6f1e2', '#f2e6dc']);
+  // contact chip
+  const cg = c.createLinearGradient(56, 60, 176, 150); cg.addColorStop(0, '#f2d27a'); cg.addColorStop(.5, '#c99a32'); cg.addColorStop(1, '#f0cf6c');
+  c.fillStyle = cg; c.beginPath(); c.roundRect(56, 60, 120, 92, 16); c.fill();
+  c.strokeStyle = 'rgba(90,60,10,.55)'; c.lineWidth = 2;
+  c.beginPath(); c.moveTo(56, 92); c.lineTo(96, 92); c.lineTo(96, 120); c.lineTo(56, 120); c.moveTo(176, 92); c.lineTo(136, 92); c.lineTo(136, 120); c.lineTo(176, 120); c.moveTo(116, 60); c.lineTo(116, 92); c.moveTo(116, 120); c.lineTo(116, 152); c.stroke();
+  const rows = [['ADDRESS / ADRESSE', 'HSE 14, RIVERSIDE DRIVE, NAIROBI'], ['DATE OF ISSUE', '03 11 2021'], ['AUTHORITY', 'MINISTRY OF INTERIOR'], ['HEIGHT', '168 CM']];
+  rows.forEach(([l, v], i) => {
+    const x = i ? 232 + (i - 1) * 0 : 232, y = 70 + i * 66;
+    c.fillStyle = INK_DIM; c.font = '500 15px "IBM Plex Mono"'; c.fillText(l, x, y);
+    c.fillStyle = INK; c.font = '600 25px Sora'; c.fillText(v, x, y + 32);
+  });
+  // MRZ band
+  c.fillStyle = 'rgba(255,255,255,.72)'; c.fillRect(0, 404, w, h - 404);
+  c.fillStyle = '#111'; c.font = '500 46px "IBM Plex Mono"';
+  MRZ.forEach((l, i) => c.fillText(l, 44, 476 + i * 56));
+}
+const OV = '#0b8f80', OVA = '#d0661a';
+function bracket(c, x, y, bw, bh, col, s = 14) {
+  c.strokeStyle = col; c.lineWidth = 4; c.beginPath();
+  c.moveTo(x, y + s); c.lineTo(x, y); c.lineTo(x + s, y); c.moveTo(x + bw - s, y); c.lineTo(x + bw, y); c.lineTo(x + bw, y + s);
+  c.moveTo(x + bw, y + bh - s); c.lineTo(x + bw, y + bh); c.lineTo(x + bw - s, y + bh); c.moveTo(x + s, y + bh); c.lineTo(x, y + bh); c.lineTo(x, y + bh - s); c.stroke();
+}
+const tick = (c, x, y, col) => { c.strokeStyle = col; c.lineWidth = 4; c.beginPath(); c.moveTo(x, y); c.lineTo(x + 7, y + 7); c.lineTo(x + 19, y - 7); c.stroke(); };
+// OCR / verification overlay drawn on top of the card front as the check runs
 function drawScan(c, w, h, v = doc.v) {
-  const bracket = (x, y, bw, bh, col, s = 14) => {
-    c.strokeStyle = col; c.lineWidth = 4; c.beginPath();
-    c.moveTo(x, y + s); c.lineTo(x, y); c.lineTo(x + s, y); c.moveTo(x + bw - s, y); c.lineTo(x + bw, y); c.lineTo(x + bw, y + s);
-    c.moveTo(x + bw, y + bh - s); c.lineTo(x + bw, y + bh); c.lineTo(x + bw - s, y + bh); c.moveTo(x + s, y + bh); c.lineTo(x, y + bh); c.lineTo(x, y + bh - s); c.stroke();
-  };
-  const tick = (x, y, col) => { c.strokeStyle = col; c.lineWidth = 4; c.beginPath(); c.moveTo(x, y); c.lineTo(x + 7, y + 7); c.lineTo(x + 19, y - 7); c.stroke(); };
   FIELDS.forEach(([, , x, y, fw], i) => {
-    const t0 = .06 + i * .08;
+    const t0 = .05 + i * .06;
     if (v < t0) return;
-    const a = Math.min(1, (v - t0) / .06);
-    c.globalAlpha = a;
-    c.fillStyle = P.teal + '22'; c.fillRect(x - 10, y - 52, fw, 72);
-    bracket(x - 10, y - 52, fw, 72, P.teal);
-    if (v > t0 + .08) tick(x + fw - 38, y - 30, P.teal);
+    c.globalAlpha = Math.min(1, (v - t0) / .05);
+    c.fillStyle = OV + '1f'; c.fillRect(x - 10, y - 58, fw, 72);
+    bracket(c, x - 10, y - 58, fw, 72, OV);
+    if (v > t0 + .07) tick(c, x + fw - 36, y - 30, OV);
     c.globalAlpha = 1;
   });
-  if (v > .55) { // face landmarks
-    const a = Math.min(1, (v - .55) / .08); c.globalAlpha = a;
-    bracket(84, 180, 210, 250, P.amber, 22);
-    c.fillStyle = P.amber;
-    [[160, 255], [218, 255], [189, 290], [168, 318], [210, 318], [189, 230], [140, 280], [238, 280]].forEach(([x, y]) => { c.beginPath(); c.arc(x, y, 4, 0, 7); c.fill(); });
-    c.font = '600 19px "IBM Plex Mono"'; c.fillText('FACE MATCH 98.4%', 96, 168);
-    c.globalAlpha = 1;
-  }
-  if (v > .7) { // MRZ checksum
-    c.globalAlpha = Math.min(1, (v - .7) / .08);
-    bracket(34, 526, w - 68, 116, P.teal);
+  if (v > .48) { // face landmarks
+    c.globalAlpha = Math.min(1, (v - .48) / .07);
+    bracket(c, 76, 196, 178, 214, OVA, 22);
+    c.fillStyle = OVA;
+    [[145, 284], [185, 284], [165, 312], [152, 332], [178, 332], [165, 252], [118, 296], [212, 296]].forEach(([x, y]) => { c.beginPath(); c.arc(x, y, 4, 0, 7); c.fill(); });
+    c.font = '600 19px "IBM Plex Mono"'; c.fillText('FACE MATCH 98.4%', 62, 186);
     c.globalAlpha = 1;
   }
 }
-const CHECKS = [['Data extracted', .2], ['Security features', .4], ['Face match 98.4%', .62], ['Not expired', .74], ['MRZ checksum valid', .82], ['Proof of address', .9]];
+// on the back: the machine-readable zone is read and its check digits verified
+function drawScanBack(c, w, h, v = doc.v) {
+  if (v < .72) return;
+  c.globalAlpha = Math.min(1, (v - .72) / .06);
+  c.fillStyle = OV + '1a'; c.fillRect(30, 418, w - 60, 196);
+  bracket(c, 30, 418, w - 60, 196, OV);
+  c.fillStyle = OV; c.font = '600 19px "IBM Plex Mono"'; c.fillText('MRZ · CHECK DIGITS VALID', 44, 404);
+  if (v > .8) tick(c, w - 76, 400, OV);
+  c.globalAlpha = 1;
+}
+const CHECKS = [['Data extracted', .4], ['Security features', .46], ['Face match 98.4%', .56], ['Not expired', .62], ['MRZ checksum valid', .82], ['Proof of address', .94]];
 function drawChecklist(c, w, h, v = doc.v) {
   c.fillStyle = P.card; c.beginPath(); c.roundRect(0, 0, w, h, 26); c.fill();
   c.strokeStyle = P.faint; c.lineWidth = 2; c.stroke();
@@ -252,20 +349,63 @@ function drawBill(c, w, h) {
   c.fillStyle = P.ink; c.font = '600 24px Sora'; c.fillText('KES 3,480.00', w - 230, 810);
 }
 const cardTex = canvasTex(CARD_W, CARD_H, drawCard);
+const cardBackTex = canvasTex(CARD_W, CARD_H, drawCardBack);
 const scanTex = canvasTex(CARD_W, CARD_H, drawScan);
+const scanBackTex = canvasTex(CARD_W, CARD_H, drawScanBack);
 const checkTex = canvasTex(620, 560, drawChecklist);
 const billTex = canvasTex(640, 860, drawBill);
+// the card: rounded polycarbonate body, printed faces with a holographic layer that shifts with the viewing angle
 const idCard = new THREE.Group(); docs.add(idCard);
+const cardFlip = new THREE.Group(); idCard.add(cardFlip);
+const CW = 3.4, CH = CW * CARD_H / CARD_W, CD = .03;
+const holoMats = [];
 {
-  const edge = new THREE.MeshStandardMaterial({ color: 0xcfd8d5, metalness: .3, roughness: .5 });
-  edge.color.setHex(0x2a3a37);
-  const face = new THREE.MeshStandardMaterial({ map: cardTex, roughness: .4, metalness: .1, emissive: 0xffffff, emissiveMap: cardTex, emissiveIntensity: .35, transparent: true });
-  const body = new THREE.Mesh(new THREE.BoxGeometry(3.4, 3.4 * CARD_H / CARD_W, .035), [edge, edge, edge, edge, face, edge]);
-  // the box corners are square; hide them behind the rounded texture by keeping the edge thin
-  idCard.add(body);
-  const overlay = new THREE.Mesh(new THREE.PlaneGeometry(3.4, 3.4 * CARD_H / CARD_W), new THREE.MeshBasicMaterial({ map: scanTex, transparent: true, depthWrite: false }));
-  overlay.position.z = .02; idCard.add(overlay);
+  const r = CW * 34 / CARD_W, s = new THREE.Shape();
+  s.moveTo(-CW / 2 + r, -CH / 2); s.lineTo(CW / 2 - r, -CH / 2); s.quadraticCurveTo(CW / 2, -CH / 2, CW / 2, -CH / 2 + r);
+  s.lineTo(CW / 2, CH / 2 - r); s.quadraticCurveTo(CW / 2, CH / 2, CW / 2 - r, CH / 2); s.lineTo(-CW / 2 + r, CH / 2);
+  s.quadraticCurveTo(-CW / 2, CH / 2, -CW / 2, CH / 2 - r); s.lineTo(-CW / 2, -CH / 2 + r); s.quadraticCurveTo(-CW / 2, -CH / 2, -CW / 2 + r, -CH / 2);
+  const edgeGeo = new THREE.ExtrudeGeometry(s, { depth: CD, bevelEnabled: false, curveSegments: 10 });
+  edgeGeo.translate(0, 0, -CD / 2);
+  const edge = new THREE.Mesh(edgeGeo, [new THREE.MeshBasicMaterial({ visible: false }), new THREE.MeshStandardMaterial({ color: 0xd9dee4, roughness: .35, metalness: .1 })]);
+  cardFlip.add(edge);
+  const faceGeo = new THREE.ShapeGeometry(s, 10), pos = faceGeo.attributes.position, uv = faceGeo.attributes.uv;
+  for (let i = 0; i < pos.count; i++) uv.setXY(i, pos.getX(i) / CW + .5, pos.getY(i) / CH + .5);
+  const face = (map, back) => {
+    const m = new THREE.ShaderMaterial({
+      uniforms: { map: { value: map }, t: { value: 0 }, seed: { value: back ? 3.1 : 0 } },
+      vertexShader: `varying vec2 vU; varying vec3 vN, vV;
+        void main(){ vU=uv; vec4 w=modelMatrix*vec4(position,1.); vN=normalize(mat3(modelMatrix)*normal); vV=normalize(cameraPosition-w.xyz); gl_Position=projectionMatrix*viewMatrix*w; }`,
+      fragmentShader: `uniform sampler2D map; uniform float t, seed; varying vec2 vU; varying vec3 vN, vV;
+        void main(){
+          vec4 base=texture2D(map,vU);
+          vec3 N=normalize(vN), V=normalize(vV), L=normalize(vec3(.5,.7,1.));
+          float lit=.82+.28*max(dot(N,L),0.);
+          float facing=clamp(dot(N,V),0.,1.);
+          // holographic foil: rings around the ghost image and a diagonal wave, colour shifting with the angle
+          vec2 q=vU*vec2(1.585,1.);
+          float ring=smoothstep(.55,1.,sin(length(q-vec2(1.45,.26))*70.))*smoothstep(.55,.1,length(q-vec2(1.45,.26)));
+          float wave=smoothstep(.75,1.,sin((q.x+q.y*.6)*24.+sin(q.y*9.+seed)*1.5))*.45;
+          float hue=fract(q.x*.6+q.y*.4+(1.-facing)*2.4+t*.04+seed);
+          vec3 rainbow=.5+.5*cos(6.2832*(hue+vec3(0.,.33,.67)));
+          float sheen=(ring+wave)*(.18+.9*pow(1.-facing,1.3));
+          float spec=pow(max(dot(reflect(-L,N),V),0.),60.)*.35;
+          gl_FragColor=vec4(base.rgb*lit+rainbow*sheen*.24+spec,base.a);
+        }`,
+      transparent: true,
+    });
+    holoMats.push(m);
+    const mesh = new THREE.Mesh(faceGeo, m);
+    if (back) { mesh.rotation.y = Math.PI; mesh.position.z = -CD / 2 - .001; } else mesh.position.z = CD / 2 + .001;
+    return mesh;
+  };
+  cardFlip.add(face(cardTex, false), face(cardBackTex, true));
+  const overlay = new THREE.Mesh(new THREE.PlaneGeometry(CW, CH), new THREE.MeshBasicMaterial({ map: scanTex, transparent: true, depthWrite: false }));
+  overlay.position.z = CD / 2 + .01; cardFlip.add(overlay);
+  const overlayBack = new THREE.Mesh(new THREE.PlaneGeometry(CW, CH), new THREE.MeshBasicMaterial({ map: scanBackTex, transparent: true, depthWrite: false }));
+  overlayBack.rotation.y = Math.PI; overlayBack.position.z = -CD / 2 - .01; cardFlip.add(overlayBack);
 }
+// the check turns the card over to read the back, then returns it face up
+const flipAt = v => { const k = x => Math.min(1, Math.max(0, x)), e = x => x * x * (3 - 2 * x); return e(k((v - .6) / .1)) - e(k((v - .88) / .08)); };
 const docBeamMat = glow(new THREE.ShaderMaterial({
   transparent: true, depthWrite: false, uniforms: { c: { value: new THREE.Color(P.tealHex) }, k: { value: 0 } },
   vertexShader: 'varying vec2 vU; void main(){ vU=uv; gl_Position=projectionMatrix*modelViewMatrix*vec4(position,1.); }',
@@ -277,7 +417,7 @@ themed.push(() => { docBeamMat.uniforms.c.value.setHex(P.tealHex); docLine.mater
 const bill = new THREE.Mesh(new THREE.PlaneGeometry(2.1, 2.1 * 860 / 640), new THREE.MeshBasicMaterial({ map: billTex, transparent: true, side: THREE.DoubleSide }));
 bill.position.set(-1.25, .75, -1.3); bill.rotation.set(0, .42, .06); docs.add(bill);
 const checklist = new THREE.Mesh(new THREE.PlaneGeometry(2.3, 2.3 * 560 / 620), new THREE.MeshBasicMaterial({ map: checkTex, transparent: true, depthWrite: false }));
-checklist.position.set(1.95, 1.2, .7); checklist.rotation.y = -.28; checklist.scale.setScalar(.85); docs.add(checklist);
+checklist.position.set(2.05, 1.55, .7); checklist.rotation.y = -.28; checklist.scale.setScalar(.85); docs.add(checklist);
 idCard.position.set(-.2, -.35, 0);
 idCard.rotation.set(.12, .28, -.04);
 const fitDocs = () => docs.scale.setScalar(innerWidth < innerHeight ? .78 : 1); fitDocs();
@@ -638,7 +778,7 @@ function setChapter(ch) {
   $('#cnum').textContent = String(ch + 1).padStart(2, '0');
   showPanel(panels[ch], busy ? .28 : .05);
   blip();
-  if (ch === 1) gsap.fromTo(doc, { v: 0 }, { v: 1, duration: 3.6, ease: 'none', overwrite: true });
+  if (ch === 1) gsap.fromTo(doc, { v: 0 }, { v: 1, duration: 5.2, ease: 'none', overwrite: true });
   if (ch === 3) gsap.fromTo(dial, { v: 0 }, { v: SCORE, duration: 2.2, ease: 'power2.out', overwrite: true });
   if (ch === 4) gsap.fromTo(gridState, { link: 0 }, { link: 1, duration: 2.4, delay: .4, ease: 'power2.inOut', overwrite: true });
 }
@@ -787,13 +927,16 @@ function frame() {
   // document check: beam sweeps while the check runs, overlay and checklist repaint as it progresses
   if (docs.visible) {
     const q = Math.round(doc.v * 60);
-    if (q !== doc.q) { doc.q = q; scanTex.repaint(); checkTex.repaint(); }
-    const running = doc.v > 0 && doc.v < .92;
+    if (q !== doc.q) { doc.q = q; scanTex.repaint(); scanBackTex.repaint(); checkTex.repaint(); }
+    const flip = flipAt(doc.v);
+    cardFlip.rotation.y = flip * Math.PI;
+    holoMats.forEach(m => { m.uniforms.t.value = t; });
+    const running = doc.v > 0 && doc.v < .92 && (flip < .02 || flip > .98);
     docBeamMat.uniforms.k.value += ((running ? 1 : 0) - docBeamMat.uniforms.k.value) * Math.min(1, dt * 5);
     docBeam.position.x = docLine.position.x = Math.sin(t * 1.6) * 1.55;
     docLine.material.opacity = docBeamMat.uniforms.k.value;
     idCard.position.y = -.35 + Math.sin(t * .7) * .05; idCard.rotation.y = .28 + Math.sin(t * .4) * .06;
-    checklist.position.y = 1.2 + Math.sin(t * .6 + 1) * .05;
+    checklist.position.y = 1.55 + Math.sin(t * .6 + 1) * .05;
     bill.rotation.y = .42 + Math.sin(t * .35 + 2) * .04;
   }
 
@@ -840,7 +983,7 @@ function frame() {
   if (fl > .45) whoosh();
 
   // once the closing section is on screen no chapter text should linger, even if the camera is still catching up
-  if (entered) setChapter(scrollY > journeyEnd() ? -1 : chapterFor(p));
+  if (entered) { setChapter(scrollY > journeyEnd() ? -1 : chapterFor(p)); heroFollow(p); }
 
   renderer.render(scene, camera);
   requestAnimationFrame(frame);
@@ -874,32 +1017,58 @@ Promise.all([fontsReady, texturesReady]).then(() => {
     }, '-=2.2');
 });
 
+/* the hero stays in the page: scrolling back to the globe brings INITIATE SCAN back, and pressing it runs the journey again */
+let heroOn = true, gliding = false;
+function glideTo(k) {
+  const top = scrollForStation(k) * journeyEnd();
+  gliding = true;
+  if (lenis) lenis.scrollTo(top, { duration: 2.6, onComplete: () => { gliding = false; } });
+  else { scrollTo({ top, behavior: 'smooth' }); setTimeout(() => { gliding = false; }, 2600); }
+}
+function setHero(on) {
+  if (on === heroOn) return;
+  heroOn = on;
+  gsap.killTweensOf('#hero > *');
+  if (on) {
+    gsap.set('#hero', { autoAlpha: 1 });
+    gsap.fromTo('#hero > *', { autoAlpha: 0, y: 18 }, { autoAlpha: 1, y: 0, stagger: .1, duration: .9, ease: 'power3.out' });
+    gsap.to('#rail', { opacity: 0, duration: .5, overwrite: true });
+  } else {
+    gsap.to('#hero > *', { autoAlpha: 0, y: -18, stagger: .05, duration: .45, ease: 'power2.in', onComplete: () => { if (!heroOn) gsap.set('#hero', { autoAlpha: 0 }); } });
+    gsap.to('#rail', { opacity: 1, duration: 1, overwrite: true });
+  }
+}
+// called every frame once the journey has started: show the hero near the globe, hide it as soon as the camera leaves
+function heroFollow(p) {
+  if (gliding || regOpen) return;
+  if (!heroOn && p < .12 && scrollY < 40) setHero(true);
+  else if (heroOn && p > .3) setHero(false);
+}
+
 $('#start').onclick = () => {
   if (!ac) startAudio();
   blip();
-  gsap.timeline()
-    .to('#hero > *', { autoAlpha: 0, y: -18, stagger: .05, duration: .5, ease: 'power2.in' })
-    .add(() => {
-      $('#hero').remove();
-      document.body.classList.add('live');
-      scrollTo(0, 0);
-      gsap.to('#rail', { opacity: 1, duration: 1 });
-      // scroll drives the camera through the stations
-      if (!regOpen) lenis?.start();
-      ScrollTrigger.refresh();
-      entered = true;
-      // final stats count up
-      ScrollTrigger.create({
-        trigger: '#final', start: 'top 60%', once: true, onEnter: () => {
-          scramble($('#final h2'), 1200);
-          $$('[data-count]').forEach(el => {
-            const o = { v: 0 }, n = +el.dataset.count;
-            gsap.to(o, { v: n, duration: 1.8, ease: 'power2.out', onUpdate: () => el.textContent = (el.dataset.prefix || '') + Math.round(o.v) + (el.dataset.suffix || '') });
-          });
-        }
-      });
-      // glide into chapter 01 so the journey starts on its own
-      const max = journeyEnd();
-      setTimeout(() => lenis ? lenis.scrollTo(scrollForStation(1) * max, { duration: 2.6 }) : scrollTo({ top: scrollForStation(1) * max, behavior: 'smooth' }), 50);
+  setHero(false);
+  if (entered) { glideTo(1); return; }
+  gliding = true;
+  gsap.delayedCall(.55, () => {
+    document.body.classList.add('live');
+    scrollTo(0, 0);
+    // scroll drives the camera through the stations
+    if (!regOpen) lenis?.start();
+    ScrollTrigger.refresh();
+    entered = true;
+    // final stats count up
+    ScrollTrigger.create({
+      trigger: '#final', start: 'top 60%', once: true, onEnter: () => {
+        scramble($('#final h2'), 1200);
+        $$('[data-count]').forEach(el => {
+          const o = { v: 0 }, n = +el.dataset.count;
+          gsap.to(o, { v: n, duration: 1.8, ease: 'power2.out', onUpdate: () => el.textContent = (el.dataset.prefix || '') + Math.round(o.v) + (el.dataset.suffix || '') });
+        });
+      }
     });
+    // glide into chapter 01 so the journey starts on its own
+    setTimeout(() => glideTo(1), 50);
+  });
 };
